@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RD Algorithm Visualizer</title>
+
+  <!-- React 18 -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- Babel Standalone (with TypeScript) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- react-force-graph-2d -->
+  <script src="https://unpkg.com/react-force-graph-2d@1.25.4/dist/react-force-graph-2d.min.js"></script>
+
+  <style>
+    :root {
+      font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+      font-weight: 400;
+      color-scheme: light dark;
+      color: rgba(255, 255, 255, 0.87);
+      background-color: #242424;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        color: #213547;
+        background-color: #ffffff;
+      }
+    }
+
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+      background-color: #f8fafc;
+      color: #0f172a;
+      overflow: hidden;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 1.5rem;
+      background-color: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .header h1 {
+      font-size: 1.25rem;
+      margin: 0;
+      color: #1e293b;
+    }
+
+    .controls {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    button {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .primary-btn {
+      background-color: #3b82f6;
+      color: white;
+    }
+
+    .primary-btn:hover {
+      background-color: #2563eb;
+    }
+
+    .secondary-btn {
+      background-color: #e2e8f0;
+      color: #475569;
+    }
+
+    .secondary-btn:hover {
+      background-color: #cbd5e1;
+    }
+
+    .main-content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 350px;
+      min-width: 300px;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #e2e8f0;
+      background-color: #ffffff;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      padding: 0.75rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .panel.input-panel {
+      flex: 0 0 250px;
+    }
+
+    .panel.output-panel {
+      flex: 1;
+      min-height: 150px;
+    }
+
+    .panel.enum-panel {
+      flex: 1;
+      min-height: 150px;
+    }
+
+    .panel h3 {
+      font-size: 0.875rem;
+      margin: 0 0 0.5rem 0;
+      color: #475569;
+    }
+
+    .code-area {
+      flex: 1;
+      font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+      font-size: 0.75rem;
+      padding: 0.5rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      resize: none;
+      background-color: #f1f5f9;
+      color: #334155;
+    }
+
+    .output-area {
+      background-color: #f8fafc;
+    }
+
+    .visualizer-area {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      grid-template-rows: 1fr 1fr;
+      gap: 1rem;
+      padding: 1rem;
+      background-color: #f1f5f9;
+      overflow-y: auto;
+    }
+
+    .viz-box {
+      background-color: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .graph-viz {
+      grid-column: 1 / 4;
+      grid-row: 1 / 2;
+    }
+
+    .table-viz {
+      grid-column: 4 / 7;
+      grid-row: 1 / 2;
+    }
+
+    .tree-viz {
+      grid-column: 1 / 5;
+      grid-row: 2 / 3;
+    }
+
+    .bdd-viz {
+      grid-column: 5 / 7;
+      grid-row: 2 / 3;
+    }
+
+    .viz-box h3 {
+      margin: 0;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      border-bottom: 1px solid #e2e8f0;
+      background-color: #f8fafc;
+      color: #334155;
+    }
+
+    .viz-content {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      overflow: auto;
+    }
+
+    .data-table {
+      border-collapse: collapse;
+      width: 100%;
+      font-family: monospace;
+      font-size: 0.75rem;
+      text-align: center;
+    }
+
+    .data-table th,
+    .data-table td {
+      border: 1px solid #e2e8f0;
+      padding: 0.25rem 0.5rem;
+      min-width: 40px;
+    }
+
+    .data-table th {
+      background-color: #f8fafc;
+      color: #475569;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .data-table td:first-child {
+      background-color: #f8fafc;
+      color: #475569;
+      position: sticky;
+      left: 0;
+      z-index: 5;
+    }
+
+    /* BDD View Styles */
+    .bdd-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      padding: 1rem;
+      box-sizing: border-box;
+      background: #fcfcfd;
+    }
+
+    .tree-container {
+      font-size: 0.75rem;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      padding: 1rem;
+      box-sizing: border-box;
+      text-align: center;
+    }
+
+    .tree-scale-wrapper {
+      display: inline-block;
+      text-align: left;
+      transform-origin: top left;
+      transition: transform 0.2s;
+    }
+
+    .tree-node-wrapper {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 0.5rem;
+    }
+
+    .tree-children .tree-node-wrapper {
+      padding-top: 20px;
+    }
+
+    .tree-node {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.25rem 0.5rem;
+      border: 2px solid #64748b;
+      border-radius: 4px;
+      background: white;
+      cursor: pointer;
+      min-width: 2rem;
+      margin-bottom: 0;
+      transition: all 0.2s;
+      outline: 2px solid transparent;
+      z-index: 10;
+    }
+
+    .tree-node:hover {
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .tree-node.selected {
+      box-shadow: 0 0 0 2px #3b82f6;
+    }
+
+    .tree-children {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      position: relative;
+      margin-top: 0;
+      padding-top: 20px;
+    }
+
+    .tree-children::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: calc(50% - 1px);
+      width: 2px;
+      height: 20px;
+      background-color: #64748b;
+    }
+
+    .tree-children .tree-node-wrapper::before,
+    .tree-children .tree-node-wrapper::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      width: 50%;
+      height: 20px;
+      box-sizing: border-box;
+    }
+
+    .tree-children .tree-node-wrapper::before {
+      right: 50%;
+      border-top: 2px solid #64748b;
+    }
+
+    .tree-children .tree-node-wrapper::after {
+      left: 50%;
+      border-top: 2px solid #64748b;
+      border-left: 2px solid #64748b;
+      margin-left: -1px;
+      width: calc(50% + 1px);
+    }
+
+    /* Only child */
+    .tree-children .tree-node-wrapper:only-child::before,
+    .tree-children .tree-node-wrapper:only-child::after {
+      display: none;
+    }
+
+    .tree-children .tree-node-wrapper:only-child {
+      padding-top: 0;
+    }
+
+    /* First child */
+    .tree-children .tree-node-wrapper:first-child::before {
+      border-top: 0;
+    }
+
+    /* Last child */
+    .tree-children .tree-node-wrapper:last-child::after {
+      border-top: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <!-- App Script -->
+  <script type="text/babel" data-presets="react,typescript">
+    const { useState, useEffect, useRef } = React;
+    // The CDN version registers ForceGraph2D globally
+    const ForceGraphView = window.ForceGraph2D;
+
+
+
+    function parseInput(inputText) {
+      const lines = inputText.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length === 0) return null;
+      const [nStr, mStr] = lines[0].split(/\s+/);
+      const n = parseInt(nStr, 10);
+      const m = parseInt(mStr, 10);
+      if (isNaN(n) || isNaN(m)) return null;
+
+      const edges = [];
+      for (let i = 1; i <= m; i++) {
+        if (i >= lines.length) return null;
+        const [uStr, vStr] = lines[i].split(/\s+/);
+        edges.push([parseInt(uStr, 10) - 1, parseInt(vStr, 10) - 1]);
+      }
+      if (m + 1 >= lines.length) return null;
+      const lastLine = lines[m + 1].split(/\s+/);
+      if (lastLine.length < 3) return null;
+      const x = parseInt(lastLine[0], 10) - 1;
+      const y = parseInt(lastLine[1], 10) - 1;
+      const T = parseFloat(lastLine[2]);
+      return { n, m, edges, x, y, T };
+    }
+
+    function buildAdjacencyList(n, edges, state, optimistic) {
+      const g = Array.from({ length: n }, () => []);
+      for (let i = 0; i < edges.length; i++) {
+        let use = true;
+        if (state && state.length === edges.length) {
+          use = optimistic ? (state[i] !== 0) : (state[i] === 1);
+        }
+        if (use) {
+          const [u, v] = edges[i];
+          g[u].push(v);
+          g[v].push(u);
+        }
+      }
+      return g;
+    }
+
+    function min_degree_vertex_hierarchy_td(adjList) {
+      const n = adjList.length;
+      const adj = Array.from({ length: n }, () => Array(n).fill(0));
+      for (let u = 0; u < n; u++) {
+        for (const v of adjList[u]) {
+          if (v < 0 || v >= n || v === u) continue;
+          adj[u][v] = 1;
+          adj[v][u] = 1;
+        }
+      }
+      const alive = Array(n).fill(1);
+      const deg = Array(n).fill(0);
+      for (let u = 0; u < n; u++) {
+        let d = 0;
+        for (let v = 0; v < n; v++) if (adj[u][v]) d++;
+        deg[u] = d;
+      }
+
+      const collect_alive_neighbors = (v) => {
+        const nbrs = [];
+        for (let u = 0; u < n; u++) if (alive[u] && adj[v][u]) nbrs.push(u);
+        return nbrs.sort((a, b) => a - b);
+      };
+      const add_edge_if_missing = (a, b) => {
+        if (a === b) return;
+        if (!adj[a][b]) {
+          adj[a][b] = adj[b][a] = 1;
+          if (alive[a] && alive[b]) { deg[a]++; deg[b]++; }
+        }
+      };
+      const remove_vertex = (v, nbrs) => {
+        alive[v] = 0;
+        for (const u of nbrs) {
+          if (!alive[u] || !adj[v][u]) continue;
+          adj[v][u] = adj[u][v] = 0;
+          deg[u]--;
+        }
+        deg[v] = 0;
+      };
+
+      const order_index = Array(n).fill(-1);
+      const Nplus = Array.from({ length: n }, () => []);
+
+      for (let step = 0; step < n; ++step) {
+        let v = -1;
+        for (let i = 0; i < n; ++i) {
+          if (!alive[i]) continue;
+          if (v === -1 || deg[i] < deg[v] || (deg[i] === deg[v] && i < v)) v = i;
+        }
+        if (v === -1) break;
+
+        const nbrs = collect_alive_neighbors(v);
+        for (let i = 0; i < nbrs.length; i++) {
+          for (let j = i + 1; j < nbrs.length; j++) add_edge_if_missing(nbrs[i], nbrs[j]);
+        }
+        order_index[v] = step;
+        Nplus[v] = nbrs;
+        remove_vertex(v, nbrs);
+      }
+
+      const bag_of_vertex = Array.from({ length: n }, () => []);
+      const parent = Array(n).fill(-1);
+      let width = 0;
+      for (let v = 0; v < n; v++) {
+        const bag = [...Nplus[v], v].sort((a, b) => a - b);
+        const ubag = bag.filter((val, idx, arr) => idx === 0 || val !== arr[idx - 1]);
+        bag_of_vertex[v] = ubag;
+        width = Math.max(width, ubag.length - 1);
+      }
+      let root = -1;
+      const tree_edges = [];
+      for (let v = 0; v < n; v++) {
+        let best = -1;
+        for (const u of Nplus[v]) {
+          if (order_index[u] === -1 || order_index[u] <= order_index[v]) continue;
+          if (best === -1 || order_index[u] < order_index[best] || (order_index[u] === order_index[best] && u < best)) best = u;
+        }
+        parent[v] = best;
+        if (best !== -1) tree_edges.push([v, best]);
+        else if (root === -1 || order_index[v] > order_index[root]) root = v;
+      }
+      return { width, bag_of_vertex, parent, tree_edges, root };
+    }
+
+    function build_labels_algorithm1(graph, td) {
+      const n = graph.length;
+      const label = { S: Array.from({ length: n }, () => Array(n).fill(0.0)), diagonal: Array(n).fill(0.0), history: [], detailedHistory: [] };
+
+      const recordState = (isMain, msg) => {
+        const snap = JSON.parse(JSON.stringify(label.S));
+        label.detailedHistory.push({ S: snap, msg });
+        if (isMain) label.history.push({ S: snap, msg });
+      };
+
+      recordState(true, "Initialize S");
+      if (n === 0 || td.root < 0) return label;
+
+      const children = Array.from({ length: n }, () => []);
+      for (let v = 0; v < n; v++) if (td.parent[v] !== -1) children[td.parent[v]].push(v);
+      for (let v = 0; v < n; v++) children[v].sort((a, b) => a - b);
+
+      const dfs_order = [];
+      const tin = Array(n).fill(-1);
+      const tout = Array(n).fill(-1);
+      let timer = 0;
+      const dfs = (v) => {
+        tin[v] = timer++; dfs_order.push(v);
+        for (const c of children[v]) dfs(c);
+        tout[v] = timer;
+      };
+      dfs(td.root);
+      for (let v = 0; v < n; v++) if (tin[v] === -1) dfs(v);
+
+      const order = [...dfs_order].reverse();
+      const in_U = Array(n).fill(0);
+      const is_ancestor = (anc, desc) => tin[anc] <= tin[desc] && tout[desc] <= tout[anc];
+
+      const subtree_nodes = Array.from({ length: n }, () => []);
+      for (let v = 0; v < n; v++) {
+        for (let u = 0; u < n; u++) if (is_ancestor(v, u)) subtree_nodes[v].push(u);
+      }
+
+      for (let i = 0; i < n - 1; i++) {
+        const vi = order[i];
+        in_U[vi] = 1;
+        recordState(false, `Line 4: process v${vi + 1}, add to U`);
+        for (const w of graph[vi]) {
+          if (!in_U[w]) continue;
+          let vk = w;
+          while (vk !== vi) {
+            if (Math.abs(label.S[vk][vk]) < 1e-15) break;
+            const ratio = label.S[vk][w] / label.S[vk][vk];
+            let updated = false;
+            for (const u of subtree_nodes[vk]) {
+              label.S[vi][u] += label.S[vk][u] * ratio;
+              updated = true;
+            }
+            if (updated) recordState(false, `Line 10: Update S[v${vi + 1}, u] adding S[v${vk + 1}, u] * ratio`);
+            vk = td.parent[vk];
+            if (vk === -1) break;
+          }
+        }
+        let denom = graph[vi].length;
+        for (const w of graph[vi]) if (in_U[w]) denom -= label.S[vi][w];
+        if (Math.abs(denom) < 1e-15) denom = denom >= 0.0 ? 1e-15 : -1e-15;
+        label.S[vi][vi] = 1.0 / denom;
+        recordState(false, `Line 12: S[v${vi + 1}, v${vi + 1}] <- 1 / (d_{v${vi + 1}} - sum)`);
+
+        let updated2 = false;
+        for (const u of subtree_nodes[vi]) {
+          if (u === vi) continue;
+          label.S[vi][u] /= denom;
+          updated2 = true;
+        }
+        if (updated2) recordState(false, `Line 14: S[v${vi + 1}, u] <- S[v${vi + 1}, u] / (d_{v${vi + 1}} - sum)`);
+
+        for (const u of subtree_nodes[vi]) label.diagonal[u] = label.S[vi][u] * label.S[vi][u];
+        recordState(true, `Done processing v${vi + 1}`);
+      }
+      return label;
+    }
+
+    function build_label_query_context(td) {
+      const n = td.parent.length;
+      const root_of = Array(n).fill(-1);
+      for (let v = 0; v < n; v++) {
+        let cur = v;
+        while (td.parent[cur] !== -1) cur = td.parent[cur];
+        root_of[v] = cur;
+      }
+      return { root_of };
+    }
+
+    function lca_in_parent_forest(parent, a, b) {
+      const n = parent.length;
+      const vis = Array(n).fill(0);
+      let cur = a;
+      while (cur !== -1) { vis[cur] = 1; cur = parent[cur]; }
+      cur = b;
+      while (cur !== -1) { if (vis[cur]) return cur; cur = parent[cur]; }
+      return -1;
+    }
+
+    function rd_query_algorithm2(td, label, ctx, s, t) {
+      const INF = 1e100;
+      if (s === t) return 0.0;
+      if (ctx.root_of[s] !== ctx.root_of[t]) return INF;
+      const lca = lca_in_parent_forest(td.parent, s, t);
+      if (lca === -1) return INF;
+      const comp_root = ctx.root_of[s];
+      const safe_term = (w, num) => {
+        const den = label.S[w][w];
+        if (Math.abs(den) < 1e-15) return INF;
+        return (num * num) / den;
+      };
+      let ans = 0.0, w = s;
+      while (w !== lca) {
+        const add = safe_term(w, label.S[w][s]);
+        if (add >= INF / 2.0) return INF;
+        ans += add; w = td.parent[w]; if (w === -1) return INF;
+      }
+      w = t;
+      while (w !== lca) {
+        const add = safe_term(w, label.S[w][t]);
+        if (add >= INF / 2.0) return INF;
+        ans += add; w = td.parent[w]; if (w === -1) return INF;
+      }
+      w = lca;
+      while (w !== comp_root) {
+        const add = safe_term(w, label.S[w][s] - label.S[w][t]);
+        if (add >= INF / 2.0) return INF;
+        ans += add; w = td.parent[w]; if (w === -1) return INF;
+      }
+      return ans;
+    }
+
+
+
+    function runEnumeration(params) {
+      const { n, m, edges, x, y, T } = params;
+      const INF = 1e100;
+      const res = { nodes: [], solutions: [], visitedCount: 0, prunedCount: 0, rootTd: null, rootLabel: null };
+      const fullAdj = buildAdjacencyList(n, edges, Array(m).fill(1), false);
+      res.rootTd = min_degree_vertex_hierarchy_td(fullAdj);
+      res.rootLabel = build_labels_algorithm1(fullAdj, res.rootTd);
+
+      const getRD = (state, optimistic) => {
+        const adj = buildAdjacencyList(n, edges, state, optimistic);
+        const seen = new Uint8Array(n);
+        const q = [x]; seen[x] = 1;
+        let head = 0;
+        while (head < q.length) {
+          const v = q[head++];
+          for (const to of adj[v]) { if (!seen[to]) { seen[to] = 1; q.push(to); } }
+        }
+        if (!seen[y]) return { rd: INF, label: null };
+
+        // 連結成分のみを抽出
+        const in_comp = seen;
+        const adj_comp = Array.from({ length: n }, () => []);
+        for (let u = 0; u < n; u++) {
+          if (!in_comp[u]) continue;
+          for (const v of adj[u]) {
+            if (in_comp[v]) adj_comp[u].push(v);
+          }
+        }
+
+        // res.rootTd（全体の木分解）を成分ごとに再構築（親ノードの短絡）
+        const td_comp = {
+          width: res.rootTd.width,
+          bag_of_vertex: res.rootTd.bag_of_vertex,
+          parent: Array(n).fill(-1),
+          tree_edges: [],
+          root: -1
+        };
+
+        for (let v = 0; v < n; v++) {
+          if (!in_comp[v]) continue;
+          let p = res.rootTd.parent[v];
+          while (p !== -1 && !in_comp[p]) p = res.rootTd.parent[p];
+          td_comp.parent[v] = p;
+        }
+
+        for (let v = 0; v < n; v++) {
+          if (!in_comp[v]) continue;
+          const p = td_comp.parent[v];
+          if (p === -1) {
+            if (td_comp.root === -1 || v < td_comp.root) td_comp.root = v;
+          } else {
+            td_comp.tree_edges.push([v, p]);
+          }
+        }
+
+        const label = build_labels_algorithm1(adj_comp, td_comp);
+        const ctx = build_label_query_context(td_comp);
+        return { rd: rd_query_algorithm2(td_comp, label, ctx, x, y), label };
+      };
+
+      const state = Array(m).fill(-1);
+      let nextId = 0;
+
+      const dfs = (idx, parentId, decision) => {
+        res.visitedCount++;
+        const currentId = nextId++;
+        const { rd: rdOpt, label: currentLabel } = getRD(state, true);
+        const node = {
+          id: currentId, parentId, depth: idx, edgeIndex: decision !== null ? idx - 1 : null,
+          decision, state: [...state], rdOptimistic: rdOpt, rdLeaf: null,
+          isPruned: false, isSolution: false, children: [],
+          label: currentLabel // ノードごとにラベルを保存
+        };
+        if (parentId !== null) res.nodes[parentId].children.push(currentId);
+        res.nodes.push(node);
+        if (rdOpt > T + 1e-12) {
+          res.prunedCount++; node.isPruned = true;
+          return;
+        }
+        if (idx === m) {
+          const { rd: rdLeaf, label: leafLabel } = getRD(state, false);
+          node.rdLeaf = rdLeaf;
+          node.label = leafLabel; // 葉ノードの場合は正確なラベルで上書き
+          if (rdLeaf <= T + 1e-12) { node.isSolution = true; res.solutions.push(node); }
+          return;
+        }
+        state[idx] = 0; dfs(idx + 1, currentId, 0);
+        state[idx] = 1; dfs(idx + 1, currentId, 1);
+        state[idx] = -1;
+      };
+      dfs(0, null, null);
+
+      const bddResult = buildBDD(res.nodes);
+      res.bddNodes = bddResult.bddNodes;
+      res.bddRootId = bddResult.rootId;
+
+      return res;
+    }
+    // --- BDD Reduction ---
+    function buildBDD(nodes) {
+      if (!nodes || nodes.length === 0) return { bddNodes: [], rootId: null };
+
+      const bddNodes = [];
+      const nodeMap = new Map(); // original tree node id -> bdd node id
+      const signatureMap = new Map(); // string signature -> bdd node id
+
+      // nodes array in DFS order means if we iterate in reverse, we process bottom-up
+      for (let i = nodes.length - 1; i >= 0; i--) {
+        const node = nodes[i];
+
+        let signature = '';
+        if (node.children.length === 0) {
+          // Leaf node
+          // ユーザー要望: ノードが同一かどうかはRDがT以下かそうじゃないか(緑か赤か)だけで判定してRDの値はBDDでは無視して考える
+          // 解 (緑) = isSolution が true
+          // それ以外 (赤) = isSolution が false
+          signature = `LEAF_${node.isSolution}`;
+        } else {
+          // Internal node
+          // It has exactly two children in complete binary tree explored (0 and 1 decision)
+          // But pruned nodes might have 0 children which is handled above. 
+          // If an internal node only has 1 child explored because of pruning, we treat the missing child as a canonical "PRUNED" sink.
+
+          let child0Id = "PRUNED";
+          let child1Id = "PRUNED";
+
+          for (const cid of node.children) {
+            const childNode = nodes[cid];
+            const childBddId = nodeMap.get(cid);
+            if (childNode.decision === 0) child0Id = childBddId;
+            if (childNode.decision === 1) child1Id = childBddId;
+          }
+
+          // A node is redundant if both decisions lead to the EXACT SAME BDD node.
+          if (child0Id === child1Id) {
+            nodeMap.set(node.id, child0Id);
+            continue; // Skip creating a new BDD node, just forward the reference
+          }
+
+          // Signature: "depth_labelSignature_child0Id_child1Id"
+          // For exact isomorphism, we must consider the current node's state or depth.
+          // In strict BDD, depth (or variable index) and the two children define the node.
+          signature = `NODE_${node.depth}_${child0Id}_${child1Id}`;
+        }
+
+        if (signatureMap.has(signature)) {
+          // Isomorphic node found, share it
+          const bddId = signatureMap.get(signature);
+          nodeMap.set(node.id, bddId);
+          bddNodes[bddId].originalIds.push(node.id); // originalIds配列に追加
+        } else {
+          // Create new BDD node
+          const newBddId = bddNodes.length;
+          const bddNode = {
+            id: newBddId,
+            originalId: node.id,
+            originalIds: [node.id], // mapping of all tree nodes to this BDD node
+            depth: node.depth,
+            isLeaf: node.children.length === 0,
+            isSolution: node.isSolution,
+            isPruned: node.isPruned,
+            // Representing values can just be taken from the first node that formed this BDD state
+            // since RD doesn't matter for equivalence.
+            rdOptimistic: node.rdOptimistic,
+            rdLeaf: node.rdLeaf,
+            label: node.label,
+            decision: node.decision,
+            child0: null,
+            child1: null,
+            parents: []
+          };
+
+          if (!bddNode.isLeaf) {
+            for (const cid of node.children) {
+              const childNode = nodes[cid];
+              const childBddId = nodeMap.get(cid);
+              if (childNode.decision === 0) bddNode.child0 = childBddId;
+              if (childNode.decision === 1) bddNode.child1 = childBddId;
+            }
+            // For missing children due to pruning, we could create a dummy PRUNED node, but let's leave them as null/PRUNED marker
+            // For simplicity, we just won't draw edges to pruned branches, or we can make a single sink.
+          }
+
+          bddNodes.push(bddNode);
+          signatureMap.set(signature, newBddId);
+          nodeMap.set(node.id, newBddId);
+        }
+      }
+
+      // Build parent links for visualization (a BDD node can have multiple parents)
+      for (const bNode of bddNodes) {
+        if (bNode.child0 !== null && bNode.child0 !== "PRUNED") {
+          bddNodes[bNode.child0].parents.push(bNode.id);
+        }
+        if (bNode.child1 !== null && bNode.child1 !== "PRUNED") {
+          bddNodes[bNode.child1].parents.push(bNode.id);
+        }
+      }
+
+      // Root is always node id 0 in original, mapped to some BDD node
+      const rootId = nodeMap.get(0);
+
+      // Calculate levels for DAG drawing
+      const levels = [];
+      // ... we will draw this using standard hierarchy or a flex layout
+
+      return { bddNodes, rootId };
+    }
+    // --- ALGORITHM END ---
+
+
+    // --- UI COMPONENTS ---
+    function GraphViewComp({ params, state }) {
+      const fgRef = useRef(null);
+      const containerRef = useRef(null);
+      const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+      useEffect(() => {
+        if (fgRef.current && params) {
+          fgRef.current.zoomToFit(400, 80);
+        }
+      }, [params, state]);
+
+      useEffect(() => {
+        if (!containerRef.current) return;
+        const observer = new ResizeObserver(entries => {
+          if (entries[0]) {
+            const { width, height } = entries[0].contentRect;
+            setDimensions({ width, height });
+          }
+        });
+        observer.observe(containerRef.current);
+        return () => observer.disconnect();
+      }, []);
+
+      let content = <div className="viz-content" style={{ position: 'absolute', inset: 0 }}>No Graph Data</div>;
+
+      if (params) {
+        const { n, m, edges, x, y } = params;
+        const nodes = Array.from({ length: n }, (_, i) => {
+          let color = '#3b82f6';
+          if (i === x) color = '#ef4444';
+          if (i === y) color = '#10b981';
+          return { id: i, name: `v${i + 1}`, color, val: 20 };
+        });
+        const links = edges.map((e, idx) => {
+          let color = '#94a3b8'; let width = 1; let label = `e${idx}`; let show = true;
+          if (state && state.length === m) {
+            if (state[idx] === 1) { color = '#3b82f6'; width = 3; }
+            else if (state[idx] === 0) { color = '#e2e8f0'; width = 1; show = false; }
+            else { color = '#f59e0b'; width = 2; }
+          }
+          return { source: e[0], target: e[1], name: label, color, width, show };
+        }).filter(l => l.show);
+
+        if (ForceGraphView && dimensions.width > 0 && dimensions.height > 0) {
+          content = (
+            <ForceGraphView
+              ref={fgRef}
+              width={dimensions.width}
+              height={dimensions.height}
+              graphData={{ nodes, links }}
+              nodeLabel="name"
+              nodeColor="color"
+              nodeRelSize={6}
+              linkWidth="width"
+              linkColor="color"
+              linkLabel="name"
+              d3AlphaDecay={0.05}
+              d3VelocityDecay={0.4}
+              cooldownTicks={100}
+              onEngineStop={() => { if (fgRef.current) fgRef.current.zoomToFit(400, 80); }}
+              nodeCanvasObject={(node, ctx, globalScale) => {
+                const label = node.name;
+                const fontSize = 12 / globalScale;
+                ctx.font = `${fontSize}px Sans-Serif`;
+                ctx.fillStyle = node.color;
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI, false);
+                ctx.fill();
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#1e293b'; ctx.fillText(label, node.x, node.y - 8);
+              }}
+            />
+          );
+        }
+      }
+
+      return (
+        <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+          {content}
+        </div>
+      );
+    }
+
+    function TableView({ label, params }) {
+      const [step, setStep] = useState(0);
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [isDetail, setIsDetail] = useState(false);
+
+      useEffect(() => {
+        if (!label) return;
+        const targetHist = isDetail ? label.detailedHistory : label.history;
+        setStep(targetHist ? targetHist.length - 1 : 0);
+        setIsPlaying(false);
+      }, [label, isDetail]);
+
+      const history = isDetail ? (label?.detailedHistory || [{ S: label?.S, msg: '' }]) : (label?.history || [{ S: label?.S, msg: '' }]);
+      const currentStepObj = history[step] || { S: label?.S, msg: '' };
+      const currentS = currentStepObj.S;
+      const currentMsg = currentStepObj.msg;
+
+      useEffect(() => {
+        let timer;
+        if (isPlaying && history && step < history.length - 1) {
+          timer = setTimeout(() => {
+            setStep(s => s + 1);
+          }, 500);
+        } else if (step >= (history?.length || 0) - 1) {
+          setIsPlaying(false);
+        }
+        return () => clearTimeout(timer);
+      }, [isPlaying, step, history]);
+
+      if (!label || !params) return <div className="viz-content">No Table Data</div>;
+
+      const n = params.n;
+
+      return (
+        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          {label.history && (
+            <div style={{ display: 'flex', gap: '0.25rem', padding: '0.5rem 1rem', borderBottom: '1px solid #e2e8f0', alignItems: 'center', backgroundColor: '#f8fafc' }}>
+              <button className="secondary-btn" style={{ padding: '0.25rem 0.5rem' }} onClick={() => setStep(0)} disabled={step === 0}>|&lt;</button>
+              <button className="secondary-btn" style={{ padding: '0.25rem 0.5rem' }} onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}>&lt;</button>
+              <button className="primary-btn" style={{ padding: '0.25rem 0.75rem' }} onClick={() => setIsPlaying(!isPlaying)}>
+                {isPlaying ? 'Pause' : 'Play'}
+              </button>
+              <button className="secondary-btn" style={{ padding: '0.25rem 0.5rem' }} onClick={() => setStep(s => Math.min(history.length - 1, s + 1))} disabled={step === history.length - 1}>&gt;</button>
+              <button className="secondary-btn" style={{ padding: '0.25rem 0.5rem' }} onClick={() => setStep(history.length - 1)} disabled={step === history.length - 1}>&gt;|</button>
+              <span style={{ fontSize: '0.75rem', marginLeft: 'auto', color: '#475569', fontWeight: 'bold' }}>Step: {step} / {history.length - 1}</span>
+            </div>
+          )}
+          <div style={{ flex: 1, overflow: 'auto', padding: '1rem' }}>
+            <table className="data-table">
+              <thead>
+                <tr><th></th>{Array.from({ length: n }).map((_, i) => <th key={i}>v{i + 1}</th>)}</tr>
+              </thead>
+              <tbody>
+                {currentS && currentS.slice(0, n - 1).map((row, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 'bold' }}>v{i + 1}</td>
+                    {row.map((val, j) => {
+                      let displayVal = '';
+                      if (Math.abs(val) > 1e10) displayVal = 'inf';
+                      else if (Math.abs(val) > 1e-12) displayVal = val.toFixed(2);
+
+                      return (
+                        <td key={j} style={{ color: displayVal ? '#0f172a' : '#cbd5e1' }}>
+                          {displayVal}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {label.history && (
+            <div style={{ padding: '0.5rem 1rem', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ fontSize: '0.875rem', color: '#1e293b', fontWeight: '500', minHeight: '1.5rem' }}>
+                {currentMsg || 'Ready'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  id="detail-checkbox"
+                  checked={isDetail}
+                  onChange={e => setIsDetail(e.target.checked)}
+                />
+                <label htmlFor="detail-checkbox" style={{ fontSize: '0.875rem', cursor: 'pointer', color: '#334155', userSelect: 'none' }}>detail</label>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function BDDView({ bddNodes, rootId, originalNodes, onNodeSelect, selectedNodeId }) {
+      const containerRef = useRef(null);
+      const wrapperRef = useRef(null);
+
+      // Layout scale logic (Move before conditional returns)
+      useEffect(() => {
+        if (!containerRef.current || !wrapperRef.current) return;
+        const container = containerRef.current;
+        const wrapper = wrapperRef.current;
+
+        wrapper.style.transform = 'none';
+        wrapper.style.marginRight = '0px';
+        wrapper.style.marginBottom = '0px';
+
+        const cw = container.clientWidth - 32;
+        const ch = container.clientHeight - 32;
+        const ww = wrapper.scrollWidth;
+        const wh = wrapper.scrollHeight;
+
+        if (ww > 0 && wh > 0) {
+          let scaleX_val = cw / ww;
+          let scaleY = ch / wh;
+          let scale = Math.min(1, Math.min(scaleX_val, scaleY));
+          scale = Math.max(0.3, scale); // Min scale
+          scale = scale * 1.3; // Make BDD 1.3x larger as requested
+
+          wrapper.style.transform = `scale(${scale})`;
+          wrapper.style.marginRight = `${ww * (scale - 1)}px`;
+          wrapper.style.marginBottom = `${wh * (scale - 1)}px`;
+        }
+      }, [bddNodes]);
+
+      if (!bddNodes || bddNodes.length === 0 || rootId === null) {
+        return <div className="viz-content">No BDD Data</div>;
+      }
+
+      const root = bddNodes.find(n => n.id === rootId);
+
+      // 1. Group by Depth
+      const depthGroups = [];
+      let maxDepth = 0;
+      for (const node of bddNodes) {
+        if (node.isPruned) continue;
+
+        // Exclude root from depth mapping if its depth is not defined properly,
+        // but jotatsu.cpp sets depth for all nodes. Ensure root is handled.
+        if (node.id === rootId && node.depth === undefined) {
+          node.depth = 0;
+        }
+        if (!depthGroups[node.depth]) depthGroups[node.depth] = [];
+        depthGroups[node.depth].push(node);
+        if (node.depth > maxDepth) maxDepth = node.depth;
+      }
+
+      // If root somehow is missing from groups, add it manually
+      let rootFound = false;
+      for (let i = 0; i <= maxDepth; i++) {
+        if (depthGroups[i] && depthGroups[i].find(n => n.id === rootId)) rootFound = true;
+      }
+      if (!rootFound && root) {
+        if (!depthGroups[0]) depthGroups[0] = [];
+        depthGroups[0].push(root);
+      }
+
+      // 2. Assign preliminary X, Y grid positions
+      const xSpacing = 90;
+      const ySpacing = 70;
+      const calcPositions = {};
+
+      let maxWidth = 0;
+      for (let d = 0; d <= maxDepth; d++) {
+        const group = depthGroups[d] || [];
+        const w = group.length * xSpacing;
+        if (w > maxWidth) maxWidth = w;
+      }
+
+      for (let d = 0; d <= maxDepth; d++) {
+        const group = depthGroups[d] || [];
+        // Center alignment for each depth to make a symmetrical compact DAG
+        const startX = (maxWidth - (group.length - 1) * xSpacing) / 2;
+        group.forEach((node, idx) => {
+          calcPositions[node.id] = {
+            x: startX + idx * xSpacing,
+            y: d * ySpacing + 40
+          };
+        });
+      }
+
+      // 描画には calcPositions を直接利用するため useEffect での setPositions は不要
+
+      // 3. Render edges as SVG lines
+      const edges = [];
+      for (const node of bddNodes) {
+        const p1 = calcPositions[node.id];
+        if (!p1) continue;
+
+        const drawEdge = (childId, isDecision1) => {
+          if (childId === null || childId === "PRUNED") return;
+          const p2 = calcPositions[childId];
+          if (!p2) return;
+
+          const color = '#64748b'; // Match thicker border color
+          const strokeWidth = '2'; // Match thicker border width
+
+          // Straight lines connecting centers, 16px is approx radius
+          // 0 edge (false) is dashed, 1 edge (true) is solid.
+          const dashArray = !isDecision1 ? '4 4' : '';
+
+          const pathD = `M ${p1.x} ${p1.y + 16} L ${p2.x} ${p2.y - 16}`;
+
+          edges.push(
+            <path
+              key={`${node.id}-${childId}-${isDecision1}`}
+              d={pathD}
+              stroke={color} strokeWidth={strokeWidth} strokeDasharray={dashArray} fill="none"
+            />
+          );
+        };
+        drawEdge(node.child0, false);
+        drawEdge(node.child1, true);
+      }
+
+      // Layout scale logic (moved completely to the top)
+
+      return (
+        <div className="bdd-container" ref={containerRef}>
+          <div className="tree-scale-wrapper" ref={wrapperRef} style={{ position: 'relative', width: maxWidth + 80, height: (maxDepth + 1) * ySpacing + 80 }}>
+            <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }}>
+              {edges}
+            </svg>
+            {bddNodes.map(node => {
+              const pos = calcPositions[node.id];
+              if (!pos) return null;
+
+              const isSelected = selectedNodeId !== null && node.originalIds && node.originalIds.includes(selectedNodeId);
+
+              let nodeColor = '#3b82f6';
+              if (node.isSolution) nodeColor = '#10b981';
+              if (node.isPruned) nodeColor = '#ef4444';
+
+              return (
+                <div
+                  key={node.id}
+                  className={`tree-node ${isSelected ? 'selected' : ''}`}
+                  style={{
+                    position: 'absolute',
+                    left: pos.x,
+                    top: pos.y,
+                    transform: 'translate(-50%, -50%)',
+                    margin: 0,
+                    borderColor: nodeColor,
+                    backgroundColor: isSelected ? nodeColor : 'white',
+                    color: isSelected ? 'white' : nodeColor,
+                    zIndex: 10
+                  }}
+                  onClick={(e) => { e.stopPropagation(); onNodeSelect(node.originalId); }}
+                  title={`Included nodes: ${node.originalIds.join(', ')}\nRD Opt: ${node.rdOptimistic.toFixed(3)}\nRD Leaf: ${node.rdLeaf?.toFixed(3)}\n`}
+                >
+                  {node.decision !== null ? (node.decision === 1 ? 'R' : 'L') : 'Rt'}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    function TreeView({ nodes, onNodeSelect, selectedNodeId }) {
+      if (!nodes || nodes.length === 0) return <div className="viz-content">No Search Tree Data</div>;
+      const root = nodes.find(n => n.parentId === null);
+      if (!root) return <div className="viz-content">Invalid Tree Data</div>;
+
+      const renderNode = (node) => {
+        const isSelected = node.id === selectedNodeId;
+        let nodeColor = '#3b82f6';
+        if (node.isSolution) nodeColor = '#10b981';
+        if (node.isPruned) nodeColor = '#ef4444';
+
+        return (
+          <div key={node.id} className="tree-node-wrapper">
+            <div
+              className={`tree-node ${isSelected ? 'selected' : ''}`}
+              style={{ borderColor: nodeColor, backgroundColor: isSelected ? nodeColor : 'white', color: isSelected ? 'white' : nodeColor }}
+              onClick={(e) => { e.stopPropagation(); onNodeSelect(node); }}
+              title={`RD Opt: ${node.rdOptimistic.toFixed(3)}\nRD Leaf: ${node.rdLeaf?.toFixed(3)}\nState: ${node.state.map(s => s === -1 ? '_' : s).join('')}`}
+            >
+              {node.decision !== null ? (node.decision === 1 ? 'R' : 'L') : 'Rt'}
+            </div>
+            {node.children.length > 0 && (
+              <div className="tree-children">
+                {node.children.map(cid => {
+                  const child = nodes.find(n => n.id === cid);
+                  return child ? renderNode(child) : null;
+                })}
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      const containerRef = useRef(null);
+      const wrapperRef = useRef(null);
+
+      useEffect(() => {
+        if (!containerRef.current || !wrapperRef.current) return;
+        const container = containerRef.current;
+        const wrapper = wrapperRef.current;
+
+        // Reset scale and margins to calculate natural size
+        wrapper.style.transform = 'none';
+        wrapper.style.marginRight = '0px';
+        wrapper.style.marginBottom = '0px';
+
+        const cw = container.clientWidth - 32; // padding
+        const ch = container.clientHeight - 32;
+        const ww = wrapper.scrollWidth;
+        const wh = wrapper.scrollHeight;
+
+        if (ww > 0 && wh > 0) {
+          // Allow some scrolling if it gets too wide
+          const minScaleX = 0.5; // Prevent becoming too small horizontally
+          const scaleX = Math.max(minScaleX, cw / ww);
+          const scaleY = ch / wh;
+          // Scale down if necessary, but don't scale up too much
+          const scale = Math.min(1, Math.min(scaleX, scaleY));
+
+          wrapper.style.transform = `scale(${scale})`;
+          wrapper.style.marginRight = `${ww * (scale - 1)}px`;
+          wrapper.style.marginBottom = `${wh * (scale - 1)}px`;
+        }
+      }, [nodes]);
+
+      return (
+        <div className="tree-container" ref={containerRef}>
+          <div className="tree-scale-wrapper" ref={wrapperRef}>
+            {renderNode(root)}
+          </div>
+        </div>
+      );
+    }
+
+    function TDView({ td }) {
+      if (!td || td.root === -1) return <div className="viz-content">No True Decomposition Data</div>;
+
+      const { parent, bag_of_vertex, root } = td;
+      const children = Array.from({ length: parent.length }, () => []);
+      for (let v = 0; v < parent.length; v++) {
+        if (parent[v] !== -1) children[parent[v]].push(v);
+      }
+
+      const renderNode = (vId) => {
+        const bagStr = bag_of_vertex[vId].map(u => `v${u + 1}`).join(',');
+        return (
+          <div key={`td-${vId}`} className="tree-node-wrapper">
+            <div className="tree-node" style={{ borderColor: '#8b5cf6', color: '#8b5cf6' }}>
+              {`{${bagStr}}`}
+            </div>
+            {children[vId].length > 0 && (
+              <div className="tree-children">
+                {children[vId].map(cid => renderNode(cid))}
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      const containerRef = useRef(null);
+      const wrapperRef = useRef(null);
+
+      useEffect(() => {
+        if (!containerRef.current || !wrapperRef.current) return;
+        const container = containerRef.current;
+        const wrapper = wrapperRef.current;
+
+        wrapper.style.transform = 'none';
+        wrapper.style.marginRight = '0px';
+        wrapper.style.marginBottom = '0px';
+
+        const cw = container.clientWidth - 32;
+        const ch = container.clientHeight - 32;
+        const ww = wrapper.scrollWidth;
+        const wh = wrapper.scrollHeight;
+
+        if (ww > 0 && wh > 0) {
+          const scaleX = Math.max(0.5, cw / ww);
+          const scaleY = ch / wh;
+          const scale = Math.min(1, Math.min(scaleX, scaleY));
+
+          wrapper.style.transform = `scale(${scale})`;
+          wrapper.style.marginRight = `${ww * (scale - 1)}px`;
+          wrapper.style.marginBottom = `${wh * (scale - 1)}px`;
+        }
+      }, [td]);
+
+      return (
+        <div className="tree-container" ref={containerRef}>
+          <div className="tree-scale-wrapper" ref={wrapperRef}>
+            {renderNode(root)}
+          </div>
+        </div>
+      );
+    }
+
+    const defaultInput = `9 12\n1 2\n2 3\n2 9\n3 7\n3 9\n4 6\n4 8\n5 6\n5 9\n7 8\n7 9\n8 9\n2 4 1.8`;
+
+    function App() {
+      const [inputText, setInputText] = useState(defaultInput);
+      const [outputText, setOutputText] = useState('');
+      const [enumText, setEnumText] = useState('');
+      const [graphParams, setGraphParams] = useState(null);
+      const [enumResult, setEnumResult] = useState(null);
+      const [selectedNode, setSelectedNode] = useState(null);
+      const [currentLabel, setCurrentLabel] = useState(null);
+      const [showTDView, setShowTDView] = useState(false);
+
+      const handleRun = () => {
+        try {
+          const params = parseInput(inputText);
+          if (!params) { alert('Invalid input format'); return; }
+          setGraphParams(params);
+          setEnumResult(null);
+
+          setTimeout(() => {
+            const result = runEnumeration(params);
+            setEnumResult(result);
+            updateOutputs(params, result);
+            setCurrentLabel(result.rootLabel);
+
+            // selectedNode needs to reference the *node from result.nodes*
+            const rootNode = result.nodes.find(n => n.parentId === null);
+            if (rootNode) {
+              setSelectedNode(rootNode);
+              if (rootNode.label) setCurrentLabel(rootNode.label);
+            } else {
+              setSelectedNode(null);
+            }
+          }, 50); // Small delay to allow react to render "Running..." or clear previous state
+        } catch (e) {
+          console.error(e);
+          alert('Error parsing or running algorithm');
+        }
+      };
+
+      const updateOutputs = (params, res) => {
+        let out = '';
+        if (res.rootTd) {
+          const td = res.rootTd;
+          out += `width = ${td.width}\nroot = v${td.root + 1}\n`;
+          for (let v = 0; v < params.n; v++) {
+            out += `bag X_v${v + 1} = {${td.bag_of_vertex[v].map(u => `v${u + 1}`).join(',')}}, parent = ${td.parent[v] === -1 ? 'nil' : `v${td.parent[v] + 1}`}\n`;
+          }
+          out += `tree edges:\n`;
+          for (const edge of td.tree_edges) out += `  v${edge[0] + 1} -- v${edge[1] + 1}\n`;
+        }
+        setOutputText(out);
+
+        let eOut = `n=${params.n}, m=${params.m}, x=v${params.x + 1}, y=v${params.y + 1}, T=${params.T.toFixed(10)}\n`;
+        eOut += `visited_nodes=${res.visitedCount}, pruned_nodes=${res.prunedCount}\n`;
+        eOut += `solutions=${res.solutions.length}\nedge order:\n`;
+        params.edges.forEach((e, i) => { eOut += `  e${i} = (v${e[0] + 1}, v${e[1] + 1})\n`; });
+        eOut += `subgraphs:\n`;
+        res.solutions.forEach((sol, i) => {
+          const maskStr = sol.state.map(s => s === 1 ? '1' : '0').join('');
+          const edgeStrs = params.edges.filter((_, idx) => sol.state[idx] === 1).map(e => `(v${e[0] + 1},v${e[1] + 1})`).join(', ');
+          eOut += `[${i}] RD=${sol.rdLeaf?.toFixed(10) || 'INF'} mask=${maskStr} edges={${edgeStrs}}\n`;
+        });
+        setEnumText(eOut);
+      };
+
+      return (
+        <div className="app-container">
+          <header className="header">
+            <h1>RD Algorithm Visualizer</h1>
+            <div className="controls">
+              <button onClick={handleRun} className="primary-btn">Run</button>
+              <button onClick={() => setInputText(defaultInput)} className="secondary-btn">Reset</button>
+            </div>
+          </header>
+
+          <div className="main-content">
+            <aside className="sidebar">
+              <div className="panel input-panel">
+                <h3>Input Graph</h3>
+                <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} className="code-area" spellCheck="false" />
+              </div>
+              <div className="panel output-panel">
+                <h3>output.txt (TD & Labels)</h3>
+                <textarea readOnly value={outputText} className="code-area output-area" />
+              </div>
+              <div className="panel enum-panel">
+                <h3>enumeration_result.txt</h3>
+                <textarea readOnly value={enumText} className="code-area output-area" />
+              </div>
+            </aside>
+
+            <main className="visualizer-area">
+              <div className="viz-box graph-viz">
+                <h3>Original Graph</h3>
+                <div className="viz-content">
+                  {graphParams && <GraphViewComp params={graphParams} enumResult={enumResult} selectedNodeId={selectedNode ? selectedNode.id : null} state={selectedNode ? selectedNode.state : null} />}
+                </div>
+              </div>
+
+              <div className="viz-box table-viz">
+                <h3>RD Label</h3>
+                <div className="viz-content">
+                  <TableView label={currentLabel} params={graphParams} />
+                </div>
+              </div>
+
+              <div className="viz-box tree-viz">
+                <h3>Search Tree (DFS) View</h3>
+                <div className="viz-content">
+                  <TreeView
+                    nodes={enumResult ? enumResult.nodes : []}
+                    onNodeSelect={node => {
+                      setSelectedNode(node);
+                      setCurrentLabel(node.label);
+                    }}
+                    selectedNodeId={selectedNode ? selectedNode.id : null}
+                  />
+                </div>
+              </div>
+
+              <div className="viz-box bdd-viz">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', paddingRight: '1rem' }}>
+                  <h3>{showTDView ? 'T_min (Tree Decomposition)' : 'BDD View'}</h3>
+                  <button className="secondary-btn" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => setShowTDView(!showTDView)}>
+                    Show {showTDView ? 'BDD' : 'T_min'}
+                  </button>
+                </div>
+                <div className="viz-content">
+                  {showTDView ? (
+                    <TDView td={enumResult ? enumResult.rootTd : null} />
+                  ) : (
+                    <BDDView
+                      bddNodes={enumResult ? enumResult.bddNodes : []}
+                      rootId={enumResult ? enumResult.bddRootId : null}
+                      originalNodes={enumResult ? enumResult.nodes : []}
+                      onNodeSelect={origId => {
+                        if (enumResult && enumResult.nodes) {
+                          const node = enumResult.nodes.find(n => n.id === origId);
+                          if (node) {
+                            setSelectedNode(node);
+                            setCurrentLabel(node.label);
+                          }
+                        }
+                      }}
+                      selectedNodeId={selectedNode ? selectedNode.id : null}
+                    />
+                  )}
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+
+</html>
